@@ -105,6 +105,7 @@ function GoogleMap({ lat, lng }) {
     document.head.appendChild(script);
 
     script.onload = () => {
+      
       const map = new window.google.maps.Map(document.getElementById('map'), {
         center: { lat, lng },
         zoom: 15,
