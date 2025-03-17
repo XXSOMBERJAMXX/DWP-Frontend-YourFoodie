@@ -1,0 +1,12 @@
+{
+    "id": 1,
+    "titulo": "Cafetería Central",
+    "descripcion": "Cafetería Central es un lugar acogedor e ideal para disfrutar de un rico café en un ambiente tranquilo y relajante. Perfecto para desconectar y tomar un respiro de la rutina diaria.",
+    "imagen": "/img/Reseñas/resenaCafe.webp",
+    "calificacion": 4.5,
+    "coordenadas": { "lat": 19.4326077, "lng": -99.133208 },
+    "comentarios": [
+      { "usuario": "Juan Pérez", "comentario": "Excelente servicio y ambiente.", "date": "2023-06-01" },
+      { "usuario": "Ana Gómez", "comentario": "El café está delicioso, volveré pronto.", "date": "2023-06-01" }
+    ]
+  }

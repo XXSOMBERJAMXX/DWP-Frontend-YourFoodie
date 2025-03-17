@@ -1,5 +1,6 @@
 import React from "react";
 import { useNavigate } from "react-router-dom";
+import CryptoJS from "crypto-js";
 
 const Card = ({ id, image, title, description }) => {
   const navigate = useNavigate();
@@ -8,7 +9,8 @@ const Card = ({ id, image, title, description }) => {
     description.length > 100 ? `${description.substring(0, 100)}...` : description;
 
   const handleClick = () => {
-    navigate(`/recomendaciones/${id}`);
+    const hashId = btoa(id);
+    navigate(`/recomendations&reviews/${hashId}`);
   };
 
   return (
@@ -26,3 +28,4 @@ const Card = ({ id, image, title, description }) => {
 };
 
 export default Card;
+
