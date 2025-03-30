@@ -28,7 +28,7 @@ api.interceptors.response.use(
       // Si el token expira, redirigir al login
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      window.location.href = '/auth';
     }
     return Promise.reject(error);
   }

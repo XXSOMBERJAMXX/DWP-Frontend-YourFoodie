@@ -1,3 +1,4 @@
+//layouts/AuthLayout.jsx
 import React, { useState } from 'react';
 import LoginPage from '../../views/AuthPage/LoginPage';
 import RegisterPage from '../../views/AuthPage/RegisterPage';

@@ -1,44 +1,155 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from 'react-router-dom';
+import ProfileService from '../../services/profileService';
+import RecomendationsService from "../../services/recomendationsService";
+import { toast } from 'react-toastify';
 
-export default function UserPage() {
-    const [full_name, setFullName] = useState('');
-    const [email, setEmail] = useState('');
-    const [number, setNumber] = useState('');
-    const [description, setDescription] = useState('');
-    const [selectedAvatar, setSelectedAvatar] = useState('/img/avatars/1.jpg');
+export default function UserPage({ onLogout, onUserUpdate }) {
+    const [profile, setProfile] = useState({
+        full_name: '',
+        email: '',
+        number: '',
+        description: '',
+        avatar: '/img/avatars/default.jpg',
+        preferences: []
+    });
     const [avatars, setAvatars] = useState([]);
-    const [isEditing, setIsEditing] = useState(false); // Estado para controlar la edición
+    const [isEditing, setIsEditing] = useState(false);
+    const [isLoading, setIsLoading] = useState(true);
+    const [preferences, setPreferences] = useState([]);
+    const navigate = useNavigate();
 
+    // Cargar datos del perfil y avatares al montar el componente
     useEffect(() => {
-        // Simulación de carga de avatares desde la carpeta img/avatars/
-        const loadedAvatars = [
-            '/img/avatars/default.jpg',
-            '/img/avatars/1.jpg',
-            '/img/avatars/2.jpg',
-            '/img/avatars/3.jpg',
-            '/img/avatars/4.jpg',
-            '/img/avatars/5.jpg',
-        ];
-        setAvatars(loadedAvatars);
-    }, []);
+        const loadPreferences = async () => {
+            try {
+                const preferences = await RecomendationsService.getPreferences();
+                console.log(preferences);
+                if (preferences) {
+                    setPreferences(preferences);
+                }else{
+                    toast.error('Error al cargar preferencias');
+                }
+            } catch (error) {
+                console.error('Error al cargar preferencias:', error);
+            }
+        }
+
+        const loadProfile = async () => {
+            try {
+                // Cargar datos del perfil
+                const profileData = await ProfileService.getProfile();
+                setProfile(prev => ({
+                    ...prev,
+                    ...profileData,
+                    avatar: profileData.avatar || '/img/avatars/default.jpg',
+                    preferences: profileData.preferences ? JSON.parse(profileData.preferences) : []
+                }));
+                console.log(profileData.preferences);
+
+                // Simulación de carga de avatares
+                const loadedAvatars = [
+                    '/img/avatars/default.jpg',
+                    '/img/avatars/1.jpg',
+                    '/img/avatars/2.jpg',
+                    '/img/avatars/3.jpg',
+                    '/img/avatars/4.jpg',
+                    '/img/avatars/5.jpg',
+                ];
+                setAvatars(loadedAvatars);
+            } catch (error) {
+                toast.error(error.message);
+                navigate('/auth');
+            } finally {
+                setIsLoading(false);
+            }
+        };
+        loadPreferences();
+        loadProfile();
+    }, [navigate, onLogout]);
+
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setProfile(prev => ({ ...prev, [name]: value }));
+    };
+
+    const handleAvatarSelect = (avatar) => {
+        setProfile(prev => ({ ...prev, avatar }));
+    };
 
     const handleSubmit = async (e) => {
-        e.preventDefault(); // Evita que el formulario se envíe
-        setIsEditing(false); // Deshabilitar la edición después de actualizar
+        e.preventDefault();
+        setIsLoading(true);
+        
+        try {
+            // Actualizar datos del perfil
+            await ProfileService.updateProfile({
+                full_name: profile.full_name,
+                email: profile.email,
+                number: profile.number,
+                description: profile.description,
+                preferences: JSON.stringify(profile.preferences) // Guardar como string JSON
+            });
+    
+            // Actualizar avatar si es diferente al actual
+            if (profile.avatar !== profile.originalAvatar) {
+                await ProfileService.updateAvatar(profile.avatar);
+            }
+    
+            // Actualizar localStorage con los nuevos datos
+            const currentUser = JSON.parse(localStorage.getItem('user'));
+            const updatedUser = {
+                ...currentUser,
+                full_name: profile.full_name,
+                email: profile.email,
+                avatar: profile.avatar,
+               
+            };
+            localStorage.setItem('user', JSON.stringify(updatedUser));
+    
+            // Opcional: Actualizar el estado global si es necesario
+            onUserUpdate(updatedUser);
+    
+            toast.success('Perfil actualizado correctamente');
+            setIsEditing(false);
+        } catch (error) {
+            toast.error(error.message);
+        } finally {
+            setIsLoading(false);
+        }
     };
+
+    const togglePreference = (prefName) => {
+        if (!isEditing) return; // No permitir cambios si no está en modo edición
+
+        setProfile(prev => {
+            const updatedPreferences = prev.preferences.includes(prefName)
+                ? prev.preferences.filter(p => p !== prefName) // Quitar si ya está seleccionada
+                : [...prev.preferences, prefName]; // Agregar si no está
+
+            return { ...prev, preferences: updatedPreferences };
+        });
+    };
+
+    if (isLoading) {
+        return (
+            <div className="flex justify-center items-center h-64">
+                <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-[#e39530]"></div>
+            </div>
+        );
+    }
 
     return (
         <div className="flex w-full flex-col items-center justify-center">
-            <div className="w-full w-full max-w-3xl p-6 bg-[#635747] rounded-4xl shadow-lg text-white">
-                {/* Título */}
+            <div className="w-full max-w-3xl p-6 bg-[#635747] rounded-4xl shadow-lg text-white relative">
                 <h2 className="text-2xl font-bold mb-4 text-center">Perfil de Usuario</h2>
 
-                {/* Botón de lápiz para habilitar/deshabilitar la edición */}
-                <div className="absolute left-1/3 mb-4">
+                <div className="absolute top-6 right-6">
                     <button
                         type="button"
                         onClick={() => setIsEditing(!isEditing)}
                         className={`${isEditing ? 'bg-[#e39530]' : 'bg-[#e39588]'} p-2 rounded-full focus:outline-none focus:ring-2 focus:ring-[#c77324] focus:ring-offset-2 transition duration-300`}
+                        disabled={isLoading}
                     >
                         <svg
                             xmlns="http://www.w3.org/2000/svg"
@@ -57,48 +168,51 @@ export default function UserPage() {
                     </button>
                 </div>
 
-                {/* Formulario */}
                 <form onSubmit={handleSubmit}>
-                    {/* Selección de avatar */}
                     <div className="mb-4 flex flex-col items-center justify-center">
-                        <div className="flex items-center justify-center">
-                            <img src={selectedAvatar} alt="Avatar" className="w-24 h-24 rounded-full mr-4" />
+                        <div className="flex items-center justify-center mb-2">
+                            <img 
+                                src={profile.avatar} 
+                                alt="Avatar" 
+                                className="w-24 h-24 rounded-full object-cover border-2 border-[#e39530]" 
+                            />
                         </div>
-                        <label htmlFor="avatar" className="text-center text-xl mb-1">
-                            Selecciona un Avatar
-                        </label>
-                        <div className="flex flex-wrap justify-center gap-2">
-                            {avatars.map((avatar, index) => (
-                                <img
-                                    key={index}
-                                    src={avatar}
-                                    alt={`Avatar ${index + 1}`}
-                                    className={`w-10 h-10 rounded-full cursor-pointer ${selectedAvatar === avatar ? 'border-2 border-[#e39530]' : ''}`}
-                                    onClick={() => setSelectedAvatar(avatar)}
-                                />
-                            ))}
-                        </div>
+                        {isEditing && (
+                            <>
+                                <label htmlFor="avatar" className="text-center text-xl mb-1">
+                                    Selecciona un Avatar
+                                </label>
+                                <div className="flex flex-wrap justify-center gap-2">
+                                    {avatars.map((avatar, index) => (
+                                        <img
+                                            key={index}
+                                            src={avatar}
+                                            alt={`Avatar ${index + 1}`}
+                                            className={`w-10 h-10 rounded-full cursor-pointer ${profile.avatar === avatar ? 'border-2 border-[#e39530]' : ''}`}
+                                            onClick={() => handleAvatarSelect(avatar)}
+                                        />
+                                    ))}
+                                </div>
+                            </>
+                        )}
                     </div>
 
-                    {/* Campo de nombre completo */}
                     <div className="mb-3">
                         <label htmlFor="full_name" className="block text-sm font-medium mb-1">
                             Nombre Completo
                         </label>
                         <input
-                            autoComplete="off"
                             type="text"
                             id="full_name"
-                            value={full_name}
-                            onChange={(e) => setFullName(e.target.value)}
+                            name="full_name"
+                            value={profile.full_name}
+                            onChange={handleInputChange}
                             className="bg-white text-black mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#e39530] focus:border-[#e39530]"
-                            placeholder="Ingresa tu nombre completo"
                             required
-                            disabled={!isEditing}
+                            disabled={!isEditing || isLoading}
                         />
                     </div>
 
-                    {/* Campo de correo electrónico */}
                     <div className="mb-3">
                         <label htmlFor="email" className="block text-sm font-medium mb-1">
                             Correo Electrónico
@@ -106,17 +220,15 @@ export default function UserPage() {
                         <input
                             type="email"
                             id="email"
-                            autoComplete="off"
-                            value={email}
-                            onChange={(e) => setEmail(e.target.value)}
+                            name="email"
+                            value={profile.email}
+                            onChange={handleInputChange}
                             className="bg-white text-black mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#e39530] focus:border-[#e39530]"
-                            placeholder="Ingresa tu correo electrónico"
                             required
-                            disabled={!isEditing}
+                            disabled={!isEditing || isLoading}
                         />
                     </div>
 
-                    {/* Campo de número de teléfono */}
                     <div className="mb-3">
                         <label htmlFor="number" className="block text-sm font-medium mb-1">
                             Número de Teléfono
@@ -124,48 +236,66 @@ export default function UserPage() {
                         <input
                             type="text"
                             id="number"
-                            autoComplete="off"
-                            value={number}
-                            onChange={(e) => setNumber(e.target.value)}
+                            name="number"
+                            value={profile.number}
+                            onChange={handleInputChange}
                             className="bg-white text-black mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#e39530] focus:border-[#e39530]"
-                            placeholder="Ingresa tu número de teléfono"
                             required
-                            disabled={!isEditing}
+                            disabled={!isEditing || isLoading}
                         />
                     </div>
 
-                    {/* Campo de descripción */}
                     <div className="mb-4">
                         <label htmlFor="description" className="block text-sm font-medium mb-1">
                             Descripción
                         </label>
                         <textarea
                             id="description"
-                            autoComplete="off"
-                            value={description}
-                            onChange={(e) => setDescription(e.target.value)}
+                            name="description"
+                            value={profile.description || ''}
+                            onChange={handleInputChange}
                             className="bg-white text-black mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg shadow-sm focus:outline-none focus:ring-2 focus:ring-[#e39530] focus:border-[#e39530]"
-                            placeholder="Ingresa una descripción"
                             rows="3"
-                            disabled={!isEditing}
+                            disabled={!isEditing || isLoading}
                         />
                     </div>
 
-                    {/* Botón de actualización (solo visible en modo edición) */}
+                    <div className="mb-4">
+                        <label className="block text-sm font-medium mb-2">Preferencias</label>
+                        <div className="flex flex-wrap gap-2">
+                            {preferences.map(pref => (
+                                <button
+                                    key={pref.name}
+                                    type="button"
+                                    className={`px-4 py-2 rounded-lg border transition ${
+                                        profile.preferences.includes(pref.name)
+                                            ? 'bg-[#e39530] text-white border-[#c77324]'
+                                            : 'bg-gray-200 text-black border-gray-300'
+                                    }`}
+                                    onClick={() => togglePreference(pref.name)}
+                                >
+                                    {pref.name}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+
                     {isEditing && (
                         <button
                             type="submit"
-                            className="w-full bg-[#e39530] text-white py-2 px-4 rounded-lg hover:bg-[#d07f27] focus:outline-none focus:ring-2 focus:ring-[#c77324] focus:ring-offset-2 transition duration-300"
+                            className="w-full bg-[#e39530] text-white py-2 px-4 rounded-lg hover:bg-[#d07f27] focus:outline-none focus:ring-2 focus:ring-[#c77324] focus:ring-offset-2 transition duration-300 disabled:opacity-50"
+                            disabled={isLoading}
                         >
-                            Actualizar
+                            {isLoading ? 'Actualizando...' : 'Actualizar'}
                         </button>
                     )}
                 </form>
             </div>
 
-            {/* Botón de cerrar sesión */}
             <button
                 className="my-4 w-8/12 bg-[#ff6b6b] text-white py-2 px-4 rounded-lg hover:bg-[#ff4c4c] focus:outline-none focus:ring-2 focus:ring-[#ff3b3b] focus:ring-offset-2 transition duration-300"
+                onClick={onLogout}
+                disabled={isLoading}
             >
                 Cerrar Sesión
             </button>
